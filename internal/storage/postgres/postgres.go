@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -13,8 +12,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 )
@@ -98,12 +95,8 @@ func (s *Storage) CreateClient(ctx context.Context, clientInfo *models.Client) (
 	var client models.Client
 	err = row.Scan(&client.ID, &client.ClientName, &client.Version, &client.Image, &client.CPU, &client.Memory, &client.Priority, &client.NeedRestart, &client.SpawnedAt, &client.CreatedAt, &client.UpdatedAt)
 	if err != nil {
-		_ = tx.Rollback(ctx)
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique violation
-			return nil, fmt.Errorf("%s: %w", op, storage.ErrExists)
-		}
-		return nil, fmt.Errorf("%s: failed to scan row: %v", op, err)
+		defer tx.Rollback(ctx)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	_, err = tx.Exec(ctx, "INSERT INTO algorithm_statuses (client_id) VALUES ($1)", client.ID)
@@ -132,9 +125,6 @@ func (s *Storage) UpdateClient(ctx context.Context, fields []string, values []in
 	var client models.Client
 	err := row.Scan(&client.ID, &client.ClientName, &client.Version, &client.Image, &client.CPU, &client.Memory, &client.Priority, &client.NeedRestart, &client.SpawnedAt, &client.CreatedAt, &client.UpdatedAt)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
-		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -150,7 +140,7 @@ func (s *Storage) RemoveClient(ctx context.Context, id int) error {
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			_ = tx.Rollback(ctx)
+			defer tx.Rollback(ctx)
 			panic(p) // Re-throw panic after Rollback
 		}
 	}()
@@ -158,19 +148,19 @@ func (s *Storage) RemoveClient(ctx context.Context, id int) error {
 	// Удаление из algorithm_statuses
 	_, err = tx.Exec(ctx, `DELETE FROM algorithm_statuses WHERE client_id = $1`, id)
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		defer tx.Rollback(ctx)
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	// Удаление из clients
 	ct, err := tx.Exec(ctx, `DELETE FROM clients WHERE id = $1`, id)
 	if err != nil {
-		_ = tx.Rollback(ctx)
+		defer tx.Rollback(ctx)
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	if ct.RowsAffected() == 0 {
-		_ = tx.Rollback(ctx)
+		defer tx.Rollback(ctx)
 		return fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
 	}
 
