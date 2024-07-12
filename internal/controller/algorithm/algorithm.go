@@ -17,6 +17,7 @@ var (
 	emptyValue = 0
 )
 
+//go:generate mockgen -source=algorithm.go -destination=mock/mock.go -package=algorithm
 type Service interface {
 	UpdateStatuses(ctx context.Context, algoStatuses *models.AlgoStatuses) (*models.AlgoStatuses, error)
 }
