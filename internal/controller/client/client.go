@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/render"
 )
 
+//go:generate mockgen -source=client.go -destination=mock/mock.go
 type Service interface {
 	AddClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
 	UpdateClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
