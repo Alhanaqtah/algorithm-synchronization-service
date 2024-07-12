@@ -172,6 +172,28 @@ func (s *Storage) RemoveClient(ctx context.Context, id int) error {
 	return nil
 }
 
+func (s *Storage) UpdateStatuses(ctx context.Context, fields []string, values []interface{}) (*models.AlgoStatuses, error) {
+	const op = "storage.postgres.UpdateStatuses"
+
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("%s: %w", op)
+	}
+
+	f := strings.Join(fields, ", ")
+
+	q := fmt.Sprintf("UPDATE algorithm_statuses SET %s WHERE id = $%d RETURNING client_id, vwap, twap, hft", f, len(values))
+
+	row := s.pool.QueryRow(ctx, q, values...)
+
+	var algoStatuses models.AlgoStatuses
+	err := row.Scan(&algoStatuses.ClientID, &algoStatuses.VWAP, &algoStatuses.TWAP, &algoStatuses.HFT)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &algoStatuses, nil
+}
+
 func (s *Storage) Close() {
 	s.pool.Close()
 }

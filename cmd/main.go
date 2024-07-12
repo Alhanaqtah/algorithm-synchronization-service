@@ -8,9 +8,11 @@ import (
 	"os/signal"
 
 	"sync-algo/internal/config"
+	algorithmController "sync-algo/internal/controller/algorithm"
 	clientController "sync-algo/internal/controller/client"
 	"sync-algo/internal/lib/logger"
 	"sync-algo/internal/lib/logger/sl"
+	algorithmService "sync-algo/internal/service/algorithm"
 	clientService "sync-algo/internal/service/client"
 	"sync-algo/internal/storage/postgres"
 	"syscall"
@@ -41,9 +43,11 @@ func main() {
 
 	// Service layer
 	clientService := clientService.New(storage, log)
+	algorithmService := algorithmService.New(storage, log)
 
 	// Controller layer
 	clientController := clientController.New(clientService, log)
+	algorithmController := algorithmController.New(algorithmService, log)
 
 	// Deployer and Scheduler initialization
 	// deployer := NewK8sDeployer() // Assuming this function is implemented elsewhere
@@ -64,7 +68,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	r.Route("/clients", clientController.Register())
-	// r.Route("/algorithms", nil) // TODO: Implement algorithm routes
+	r.Route("/algorithms", algorithmController.Register())
 
 	// Init server
 	srv := http.Server{

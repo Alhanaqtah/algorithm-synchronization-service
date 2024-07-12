@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -10,7 +9,6 @@ import (
 	"sync-algo/internal/lib/logger/sl"
 	"sync-algo/internal/lib/response"
 	"sync-algo/internal/models"
-	service "sync-algo/internal/service/client"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -71,11 +69,6 @@ func (h *Handler) addClient(w http.ResponseWriter, r *http.Request) {
 
 	client, err := h.service.AddClient(r.Context(), &clientInfo)
 	if err != nil {
-		if errors.Is(err, service.ErrExists) {
-			render.Status(r, http.StatusConflict)
-			render.JSON(w, r, response.Err("Client already exists"))
-			return
-		}
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, response.Err("Internal error"))
 		return
@@ -118,11 +111,6 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 
 	client, err := h.service.UpdateClient(r.Context(), &clientInfo)
 	if err != nil {
-		if errors.Is(err, service.ErrUserNotFound) {
-			render.Status(r, http.StatusNotFound)
-			render.JSON(w, r, response.Err("Client not found"))
-			return
-		}
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, response.Err("Internal error"))
 		return
@@ -154,11 +142,6 @@ func (h *Handler) deleteClient(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.DeleteClient(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, service.ErrUserNotFound) {
-			render.Status(r, http.StatusNotFound)
-			render.JSON(w, r, response.Err("Client not found"))
-			return
-		}
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, response.Err("Internal error"))
 		return

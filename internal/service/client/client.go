@@ -43,9 +43,6 @@ func (s *Service) AddClient(ctx context.Context, clientInfo *models.Client) (*mo
 	client, err := s.storage.CreateClient(ctx, clientInfo)
 	if err != nil {
 		log.Error("failed to save client", sl.Error(err))
-		if errors.Is(err, ErrExists) {
-			return nil, ErrExists
-		}
 		return nil, err
 	}
 
@@ -106,9 +103,6 @@ func (s *Service) UpdateClient(ctx context.Context, clientInfo *models.Client) (
 	client, err := s.storage.UpdateClient(ctx, fields, values)
 	if err != nil {
 		log.Error("failed to update client", sl.Error(err))
-		if errors.Is(err, ErrExists) {
-			return nil, ErrExists
-		}
 		return nil, err
 	}
 
@@ -123,9 +117,6 @@ func (s *Service) DeleteClient(ctx context.Context, clientID int) error {
 	err := s.storage.RemoveClient(ctx, clientID)
 	if err != nil {
 		log.Error("failed to remove client", sl.Error(err))
-		if errors.Is(err, ErrUserNotFound) {
-			return ErrUserNotFound
-		}
 		return err
 	}
 
