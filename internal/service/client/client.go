@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -10,14 +9,9 @@ import (
 	"sync-algo/internal/models"
 )
 
-var (
-	ErrUserNotFound = errors.New("client not found")
-	ErrExists       = errors.New("client already exists")
-	ErrEmptyBody    = errors.New("request body is empty")
-)
-
 const emptyValue = 0
 
+//go:generate mockgen -source=client.go -destination=mock/mock.go -package=mock_storage
 type Storage interface {
 	CreateClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
 	UpdateClient(ctx context.Context, fields []string, values []interface{}) (*models.Client, error)
