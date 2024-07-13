@@ -114,36 +114,32 @@ func (s *Storage) CreateClient(ctx context.Context, clientInfo *models.Client) (
 	return &client, nil
 }
 
-func (s *Storage) UpdateClient(ctx context.Context, fields []string, values []interface{}) (*models.Client, error) {
+func (s *Storage) UpdateClient(ctx context.Context, clientInfo *models.Client) error {
 	const op = "storage.postgres.UpdateClient"
 
-	// Добавляем поле updated_at с его значением
-	fields = append(fields, "updated_at")
-	values = append(values, time.Now())
-
-	// Создаем строку для запроса с полями для обновления
-	setClauses := make([]string, len(fields))
-	for i, field := range fields {
-		setClauses[i] = fmt.Sprintf("%s = $%d", field, i+1)
-	}
-	setClause := strings.Join(setClauses, ", ")
-
-	// Получаем id клиента, который нужно обновить
-	id := values[len(values)-2]                                              // предпоследний элемент в исходном массиве
-	values[len(values)-2], values[len(values)-1] = values[len(values)-1], id // меняем местами id и время
-
 	// Формируем окончательный запрос
-	q := fmt.Sprintf("UPDATE clients SET %s WHERE id = $%d RETURNING id, name, version, image, cpu, memory, priority, need_restart, spawned_at, created_at, updated_at", setClause, len(values))
+	q := `
+		UPDATE clients 
+		SET name = $1, version = $2, image = $3, cpu = $4, memory = $5, priority = $6, need_restart = $7, updated_at = $8
+		WHERE id = $9 
+	`
 
-	row := s.pool.QueryRow(ctx, q, values...)
-
-	var client models.Client
-	err := row.Scan(&client.ID, &client.ClientName, &client.Version, &client.Image, &client.CPU, &client.Memory, &client.Priority, &client.NeedRestart, &client.SpawnedAt, &client.CreatedAt, &client.UpdatedAt)
+	_, err := s.pool.Exec(ctx, q,
+		clientInfo.ClientName,
+		clientInfo.Version,
+		clientInfo.Image,
+		clientInfo.CPU,
+		clientInfo.Memory,
+		clientInfo.Priority,
+		clientInfo.NeedRestart,
+		time.Now(),
+		clientInfo.ID,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	return &client, nil
+	return nil
 }
 
 func (s *Storage) RemoveClient(ctx context.Context, id int) error {

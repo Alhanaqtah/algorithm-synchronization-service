@@ -42,7 +42,7 @@ func New(log *slog.Logger, storage Storage) *Scheduler {
 
 // Start begins the scheduling process
 func (s *Scheduler) Start(ctx context.Context, deployer Deployer) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for {

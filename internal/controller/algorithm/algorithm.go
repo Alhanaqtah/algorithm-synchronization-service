@@ -37,9 +37,15 @@ func New(service Service, log *slog.Logger) *Handler {
 }
 
 // Register registers the API routes
+func (h *Handler) Register() func(r chi.Router) {
+	return func(r chi.Router) {
+		r.Patch("/", h.updateAlgorithmStatus)
+	}
+}
+
 // @Summary Update algorithm statuses
 // @Description Update the status of algorithms based on the provided data.
-// @Tags Algorithms
+// @Tags algorithms
 // @Accept json
 // @Produce json
 // @Param body body models.AlgoStatuses true "Algorithm statuses to update"
@@ -47,12 +53,6 @@ func New(service Service, log *slog.Logger) *Handler {
 // @Failure 400 {object} response.Response "Invalid credentials or data"
 // @Failure 500 {object} response.Response "Internal error"
 // @Router /algorithm/ [patch]
-func (h *Handler) Register() func(r chi.Router) {
-	return func(r chi.Router) {
-		r.Patch("/", h.updateAlgorithmStatus)
-	}
-}
-
 func (h *Handler) updateAlgorithmStatus(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.algorithm.updateAlgorithmStatus"
 

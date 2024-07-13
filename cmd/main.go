@@ -13,8 +13,10 @@ import (
 	"sync-algo/internal/config"
 	algorithmController "sync-algo/internal/controller/algorithm"
 	clientController "sync-algo/internal/controller/client"
+	"sync-algo/internal/deployer"
 	"sync-algo/internal/lib/logger"
 	"sync-algo/internal/lib/logger/sl"
+	"sync-algo/internal/scheduler"
 	algorithmService "sync-algo/internal/service/algorithm"
 	clientService "sync-algo/internal/service/client"
 	"sync-algo/internal/storage/postgres"
@@ -52,15 +54,15 @@ func main() {
 	algorithmController := algorithmController.New(algorithmService, log)
 
 	// Deployer initialization
-	// deployer, err := deployer.New(cfg.Kubernates)
-	// if err != nil {
-	// 	log.Error(`failed to init 'deployer'`, sl.Error(err))
-	// 	os.Exit(1)
-	// }
+	deployer, err := deployer.New(cfg.Kubernates)
+	if err != nil {
+		log.Error(`failed to init 'deployer'`, sl.Error(err))
+		os.Exit(1)
+	}
 
-	// // Scheduler initialization
-	// sch := scheduler.New(log, storage)
-	// go sch.Start(ctx, deployer)
+	// Scheduler initialization
+	sch := scheduler.New(log, storage)
+	go sch.Start(ctx, deployer)
 
 	// Init router
 	r := chi.NewRouter()

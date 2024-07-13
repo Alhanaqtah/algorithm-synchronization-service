@@ -65,16 +65,15 @@ func (mr *MockStorageMockRecorder) RemoveClient(ctx, id interface{}) *gomock.Cal
 }
 
 // UpdateClient mocks base method.
-func (m *MockStorage) UpdateClient(ctx context.Context, fields []string, values []interface{}) (*models.Client, error) {
+func (m *MockStorage) UpdateClient(ctx context.Context, clientInfo *models.Client) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateClient", ctx, fields, values)
-	ret0, _ := ret[0].(*models.Client)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "UpdateClient", ctx, clientInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpdateClient indicates an expected call of UpdateClient.
-func (mr *MockStorageMockRecorder) UpdateClient(ctx, fields, values interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) UpdateClient(ctx, clientInfo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClient", reflect.TypeOf((*MockStorage)(nil).UpdateClient), ctx, fields, values)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClient", reflect.TypeOf((*MockStorage)(nil).UpdateClient), ctx, clientInfo)
 }

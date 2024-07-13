@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"sync-algo/internal/lib/logger/sl"
@@ -14,7 +13,7 @@ const emptyValue = 0
 //go:generate mockgen -source=client.go -destination=mock/mock.go -package=mock_storage
 type Storage interface {
 	CreateClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
-	UpdateClient(ctx context.Context, fields []string, values []interface{}) (*models.Client, error)
+	UpdateClient(ctx context.Context, clientInfo *models.Client) error
 	RemoveClient(ctx context.Context, id int) error
 }
 
@@ -43,64 +42,18 @@ func (s *Service) AddClient(ctx context.Context, clientInfo *models.Client) (*mo
 	return client, nil
 }
 
-func (s *Service) UpdateClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error) {
+func (s *Service) UpdateClient(ctx context.Context, clientInfo *models.Client) error {
 	const op = "service.client.UpdateClient"
 
 	log := s.log.With(slog.String("op", op))
 
-	log.Debug("preparing user info...")
-
-	var fields []string
-	var values []interface{}
-	order := 1
-
-	if clientInfo.ClientName != "" {
-		fields = append(fields, fmt.Sprintf("name = $%d", order))
-		values = append(values, clientInfo.ClientName)
-		order++
-	}
-	if clientInfo.Version != emptyValue {
-		fields = append(fields, fmt.Sprintf("version = $%d", order))
-		values = append(values, clientInfo.Version)
-		order++
-	}
-	if clientInfo.Image != "" {
-		fields = append(fields, fmt.Sprintf("image = $%d", order))
-		values = append(values, clientInfo.Image)
-		order++
-	}
-	if clientInfo.CPU != "" {
-		fields = append(fields, fmt.Sprintf("cpu = $%d", order))
-		values = append(values, clientInfo.CPU)
-		order++
-	}
-	if clientInfo.Memory != "" {
-		fields = append(fields, fmt.Sprintf("memory = $%d", order))
-		values = append(values, clientInfo.Memory)
-		order++
-	}
-	if clientInfo.Priority != emptyValue {
-		fields = append(fields, fmt.Sprintf("priority = $%d", order))
-		values = append(values, clientInfo.Priority)
-		order++
-	}
-	if clientInfo.NeedRestart != nil {
-		fields = append(fields, fmt.Sprintf("need_restart = $%d", order))
-		values = append(values, *clientInfo.NeedRestart)
-		order++
-	}
-
-	values = append(values, clientInfo.ID)
-
-	log.Debug("preparing finished")
-
-	client, err := s.storage.UpdateClient(ctx, fields, values)
+	err := s.storage.UpdateClient(ctx, clientInfo)
 	if err != nil {
 		log.Error("failed to update client", sl.Error(err))
-		return nil, err
+		return err
 	}
 
-	return client, nil
+	return nil
 }
 
 func (s *Service) DeleteClient(ctx context.Context, clientID int) error {

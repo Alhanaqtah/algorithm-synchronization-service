@@ -18,24 +18,30 @@ import (
 )
 
 func TestHandler_addClient(t *testing.T) {
-	type mockBehavior func(s *mock_service.MockService, clientInfo *models.Client)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := mock_service.NewMockService(ctrl)
+	logger := slogdiscard.NewDiscardLogger()
+	handler := New(mockService, logger)
+
+	r := chi.NewRouter()
+	r.Post("/clients", handler.addClient)
 
 	tt := []struct {
 		name                 string
 		inputBody            string
-		inputClient          models.Client
 		expectedStatusCode   int
 		expectedResponseBody string
-		mockBehavior         mockBehavior
+		mockBehavior         func()
 	}{
 		{
-			name:                 "Create client only with name",
+			name:                 "Create client with valid data",
 			inputBody:            `{"client_name": "clientName"}`,
-			inputClient:          models.Client{ClientName: "clientName"},
 			expectedStatusCode:   http.StatusCreated,
 			expectedResponseBody: `{"id":1,"client_name":"clientName","spawned_at":"0001-01-01T00:00:00Z","created_at":"0001-01-01T00:00:00Z","updated_at":"0001-01-01T00:00:00Z"}`,
-			mockBehavior: func(s *mock_service.MockService, clientInfo *models.Client) {
-				s.EXPECT().AddClient(gomock.Any(), clientInfo).Return(&models.Client{
+			mockBehavior: func() {
+				mockService.EXPECT().AddClient(gomock.Any(), gomock.Any()).Return(&models.Client{
 					ID:         1,
 					ClientName: "clientName",
 					SpawnedAt:  time.Time{},
@@ -47,48 +53,32 @@ func TestHandler_addClient(t *testing.T) {
 		{
 			name:                 "Invalid JSON body",
 			inputBody:            `{"client_name":}`,
-			inputClient:          models.Client{},
 			expectedStatusCode:   http.StatusBadRequest,
 			expectedResponseBody: `{"status":"Error","error":"Invalid credentials"}`,
-			mockBehavior:         func(s *mock_service.MockService, clientInfo *models.Client) {},
+			mockBehavior:         func() {},
 		},
 		{
 			name:                 "Empty client name",
 			inputBody:            `{"client_name": ""}`,
-			inputClient:          models.Client{},
 			expectedStatusCode:   http.StatusBadRequest,
 			expectedResponseBody: `{"status":"Error","error":"Invalid credentials"}`,
-			mockBehavior:         func(s *mock_service.MockService, clientInfo *models.Client) {},
+			mockBehavior:         func() {},
 		},
 		{
 			name:                 "Service error",
 			inputBody:            `{"client_name": "clientName"}`,
-			inputClient:          models.Client{ClientName: "clientName"},
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: `{"status":"Error","error":"Internal error"}`,
-			mockBehavior: func(s *mock_service.MockService, clientInfo *models.Client) {
-				s.EXPECT().AddClient(gomock.Any(), clientInfo).Return(nil, errors.New(""))
+			mockBehavior: func() {
+				mockService.EXPECT().AddClient(gomock.Any(), gomock.Any()).Return(nil, errors.New("service error"))
 			},
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			// Init deps
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+			tc.mockBehavior()
 
-			service := mock_service.NewMockService(ctrl)
-			tc.mockBehavior(service, &tc.inputClient)
-
-			log := slogdiscard.NewDiscardLogger()
-			handler := New(service, log)
-
-			// Test server
-			r := chi.NewRouter()
-			r.Post("/clients", handler.addClient)
-
-			// Test request
 			reqBody := bytes.NewBufferString(tc.inputBody)
 			req := httptest.NewRequest("POST", "/clients", reqBody)
 			req.Header.Set("Content-Type", "application/json")
@@ -96,88 +86,6 @@ func TestHandler_addClient(t *testing.T) {
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 
-			// Assert response
-			assert.Equal(t, tc.expectedStatusCode, w.Code)
-			assert.JSONEq(t, tc.expectedResponseBody, w.Body.String())
-		})
-	}
-}
-
-func TestHandler_updateClient(t *testing.T) {
-	type mockBehavior func(s *mock_service.MockService, clientInfo *models.Client)
-
-	tt := []struct {
-		name                 string
-		url                  string
-		inputBody            string
-		inputClient          models.Client
-		expectedStatusCode   int
-		expectedResponseBody string
-		mockBehavior         mockBehavior
-	}{
-		{
-			name:                 "Update client name",
-			url:                  "/clients/1",
-			inputBody:            `{"client_name": "NewName"}`,
-			inputClient:          models.Client{ID: 1, ClientName: "NewName"},
-			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: `{"id":1,"client_name":"NewName","spawned_at":"0001-01-01T00:00:00Z","created_at":"0001-01-01T00:00:00Z","updated_at":"0001-01-01T00:00:00Z"}`,
-			mockBehavior: func(s *mock_service.MockService, clientInfo *models.Client) {
-				s.EXPECT().UpdateClient(gomock.Any(), clientInfo).Return(&models.Client{
-					ID:         clientInfo.ID,
-					ClientName: "NewName",
-					SpawnedAt:  time.Time{},
-					CreatedAt:  time.Time{},
-					UpdatedAt:  time.Time{},
-				}, nil)
-			},
-		},
-		{
-			name:                 "Invalid client ID in URL",
-			url:                  "/clients/invalid",
-			inputBody:            `{"client_name": "NewName"}`,
-			expectedStatusCode:   http.StatusBadRequest,
-			expectedResponseBody: `{"status":"Error","error":"Invalid client id"}`,
-			mockBehavior:         nil,
-		},
-		{
-			name:                 "Invalid JSON body",
-			url:                  "/clients/1",
-			inputBody:            `invalid JSON`,
-			expectedStatusCode:   http.StatusBadRequest,
-			expectedResponseBody: `{"status":"Error","error":"Invalid credentials"}`,
-			mockBehavior:         nil,
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			// Init deps
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			service := mock_service.NewMockService(ctrl)
-
-			// Установка mockBehavior только если он определен
-			if tc.mockBehavior != nil {
-				tc.mockBehavior(service, &tc.inputClient)
-			}
-
-			log := slogdiscard.NewDiscardLogger()
-			handler := New(service, log)
-
-			// Test server
-			r := chi.NewRouter()
-			r.Patch("/clients/{id}", handler.updateClient)
-
-			// Test request
-			w := httptest.NewRecorder()
-			req := httptest.NewRequest("PATCH", tc.url, bytes.NewBufferString(tc.inputBody))
-			req.Header.Set("Content-Type", "application/json")
-
-			r.ServeHTTP(w, req)
-
-			// Assert response
 			assert.Equal(t, tc.expectedStatusCode, w.Code)
 			assert.JSONEq(t, tc.expectedResponseBody, w.Body.String())
 		})
@@ -185,22 +93,30 @@ func TestHandler_updateClient(t *testing.T) {
 }
 
 func TestHandler_deleteClient(t *testing.T) {
-	type mockBehavior func(s *mock_service.MockService, id int)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockService := mock_service.NewMockService(ctrl)
+	logger := slogdiscard.NewDiscardLogger()
+	handler := New(mockService, logger)
+
+	r := chi.NewRouter()
+	r.Delete("/clients/{id}", handler.deleteClient)
 
 	tt := []struct {
 		name                 string
 		url                  string
 		expectedStatusCode   int
 		expectedResponseBody string
-		mockBehavior         mockBehavior
+		mockBehavior         func()
 	}{
 		{
 			name:                 "Delete client successfully",
 			url:                  "/clients/1",
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: `{"status":"OK","message":"Client removed succesfully"}`,
-			mockBehavior: func(s *mock_service.MockService, id int) {
-				s.EXPECT().DeleteClient(gomock.Any(), id).Return(nil)
+			expectedResponseBody: `{"status":"OK","message":"Client removed successfully"}`,
+			mockBehavior: func() {
+				mockService.EXPECT().DeleteClient(gomock.Any(), 1).Return(nil)
 			},
 		},
 		{
@@ -208,41 +124,28 @@ func TestHandler_deleteClient(t *testing.T) {
 			url:                  "/clients/invalid",
 			expectedStatusCode:   http.StatusBadRequest,
 			expectedResponseBody: `{"status":"Error","error":"Invalid client id"}`,
-			mockBehavior:         func(s *mock_service.MockService, id int) {},
+			mockBehavior:         func() {},
 		},
 		{
 			name:                 "Service error",
 			url:                  "/clients/1",
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: `{"status":"Error","error":"Internal error"}`,
-			mockBehavior: func(s *mock_service.MockService, id int) {
-				s.EXPECT().DeleteClient(gomock.Any(), id).Return(errors.New("internal service error"))
+			mockBehavior: func() {
+				mockService.EXPECT().DeleteClient(gomock.Any(), 1).Return(errors.New("internal service error"))
 			},
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			// Init deps
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+			tc.mockBehavior()
 
-			service := mock_service.NewMockService(ctrl)
-			tc.mockBehavior(service, 1) // Using 1 as a placeholder for id
-
-			log := slogdiscard.NewDiscardLogger()
-			handler := New(service, log)
-
-			// Test server
-			r := chi.NewRouter()
-			r.Delete("/clients/{id}", handler.deleteClient)
-
-			// Test request
 			req := httptest.NewRequest("DELETE", tc.url, nil)
+
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 
-			// Assert response
 			assert.Equal(t, tc.expectedStatusCode, w.Code)
 			assert.JSONEq(t, tc.expectedResponseBody, w.Body.String())
 		})

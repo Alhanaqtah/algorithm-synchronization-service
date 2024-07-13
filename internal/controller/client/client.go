@@ -18,7 +18,7 @@ import (
 // Service defines the interface for client operations.
 type Service interface {
 	AddClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
-	UpdateClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
+	UpdateClient(ctx context.Context, clientInfo *models.Client) error
 	DeleteClient(ctx context.Context, clientID int) error
 }
 
@@ -40,12 +40,11 @@ func New(service Service, log *slog.Logger) *Handler {
 func (h *Handler) Register() func(r chi.Router) {
 	return func(r chi.Router) {
 		r.Post("/", h.addClient)
-		r.Patch("/{id}", h.updateClient)
+		r.Put("/{id}", h.updateClient)
 		r.Delete("/{id}", h.deleteClient)
 	}
 }
 
-// addClient adds a new client.
 // @Summary Add a new client
 // @Description Add a new client to the system
 // @Tags clients
@@ -76,7 +75,7 @@ func (h *Handler) addClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if clientInfo.ClientName == "" {
-		log.Error(`client's 'name' is empty`)
+		log.Error(`client's name is empty`)
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, response.Err("Invalid credentials"))
 		return
@@ -95,7 +94,6 @@ func (h *Handler) addClient(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, client)
 }
 
-// updateClient updates an existing client.
 // @Summary Update an existing client
 // @Description Update an existing client in the system
 // @Tags clients
@@ -106,7 +104,7 @@ func (h *Handler) addClient(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} models.Client
 // @Failure 400 {object} response.Response
 // @Failure 500 {object} response.Response
-// @Router /clients/{id} [patch]
+// @Router /clients/{id} [put]
 func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.client.updateClient"
 
@@ -128,15 +126,22 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 	var clientInfo models.Client
 	err = render.Decode(r, &clientInfo)
 	if err != nil {
-		log.Error("failed to extract user info from request body", sl.Error(err))
+		log.Error("failed to extract client info from request body", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, response.Err("Invalid credentials"))
+		render.JSON(w, r, response.Err("Invalid request body"))
+		return
+	}
+
+	if clientInfo.ClientName == "" {
+		log.Error("client name is required")
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, response.Err("Client name is required"))
 		return
 	}
 
 	clientInfo.ID = int64(id)
 
-	client, err := h.service.UpdateClient(r.Context(), &clientInfo)
+	err = h.service.UpdateClient(r.Context(), &clientInfo)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
 		render.JSON(w, r, response.Err("Internal error"))
@@ -146,10 +151,8 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 	log.Debug("client updated successfully")
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, client)
 }
 
-// deleteClient deletes a client.
 // @Summary Delete a client
 // @Description Delete a client from the system
 // @Tags clients

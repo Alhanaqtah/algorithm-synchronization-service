@@ -97,7 +97,7 @@ paths:
             $ref: '#/definitions/response.Response'
       summary: Update algorithm statuses
       tags:
-      - Algorithms
+      - algorithms
   /clients/:
     post:
       consumes:
@@ -157,7 +157,7 @@ paths:
       summary: Delete a client
       tags:
       - clients
-    patch:
+    put:
       consumes:
       - application/json
       description: Update an existing client in the system
