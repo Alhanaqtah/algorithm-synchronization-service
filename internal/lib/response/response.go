@@ -5,11 +5,11 @@ const (
 	StatusErr = "Error"
 )
 
-// Response - общий ответ API
+// Response represents the structure of API responses.
 type Response struct {
-	Status  string `json:"status"`            // Статус ответа
-	Message string `json:"message,omitempty"` // Сообщение, если есть
-	Error   string `json:"error,omitempty"`   // Ошибка, если есть
+	Status  string `json:"status"`            // Status of the response (OK or Error)
+	Message string `json:"message,omitempty"` // Optional message for successful responses
+	Error   string `json:"error,omitempty"`   // Optional error message for error responses
 }
 
 // Ok - функция для создания успешного ответа

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,21 +13,20 @@ import (
 	"sync-algo/internal/config"
 	algorithmController "sync-algo/internal/controller/algorithm"
 	clientController "sync-algo/internal/controller/client"
-	"sync-algo/internal/deployer"
 	"sync-algo/internal/lib/logger"
 	"sync-algo/internal/lib/logger/sl"
-	"sync-algo/internal/scheduler"
 	algorithmService "sync-algo/internal/service/algorithm"
 	clientService "sync-algo/internal/service/client"
 	"sync-algo/internal/storage/postgres"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-// @title Algo Sync Service API
+// @title Algo Sync Service
 // @version 1.0
-// @description Test task for Effective-mobile.
+// @description Microservice from syncing user's algorythms in kubernates.
 func main() {
 	cfg := config.MustLoad()
 
@@ -52,15 +52,15 @@ func main() {
 	algorithmController := algorithmController.New(algorithmService, log)
 
 	// Deployer initialization
-	deployer, err := deployer.New(cfg.Kubernates)
-	if err != nil {
-		log.Error(`failed to init 'deployer'`, sl.Error(err))
-		os.Exit(1)
-	}
+	// deployer, err := deployer.New(cfg.Kubernates)
+	// if err != nil {
+	// 	log.Error(`failed to init 'deployer'`, sl.Error(err))
+	// 	os.Exit(1)
+	// }
 
-	// Scheduler initialization
-	sch := scheduler.New(log, storage)
-	go sch.Start(ctx, deployer)
+	// // Scheduler initialization
+	// sch := scheduler.New(log, storage)
+	// go sch.Start(ctx, deployer)
 
 	// Init router
 	r := chi.NewRouter()
@@ -72,6 +72,15 @@ func main() {
 
 	r.Route("/clients", clientController.Register())
 	r.Route("/algorithms", algorithmController.Register())
+
+	// Swagger documentation
+	r.Get("/docs/*", httpSwagger.Handler(
+		httpSwagger.URL(fmt.Sprintf("http://%s:%s/docs/swagger.json", cfg.Server.Host, cfg.Server.Port)), //The url pointing to API definition
+	))
+
+	r.Get("/docs/swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "docs/swagger.json")
+	})
 
 	// Init server
 	srv := http.Server{

@@ -15,18 +15,20 @@ import (
 	"github.com/go-chi/render"
 )
 
-//go:generate mockgen -source=client.go -destination=mock/mock.go
+// Service defines the interface for client operations.
 type Service interface {
 	AddClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
 	UpdateClient(ctx context.Context, clientInfo *models.Client) (*models.Client, error)
 	DeleteClient(ctx context.Context, clientID int) error
 }
 
+// Handler handles HTTP requests related to clients.
 type Handler struct {
 	service Service
 	log     *slog.Logger
 }
 
+// New creates a new instance of Handler.
 func New(service Service, log *slog.Logger) *Handler {
 	return &Handler{
 		service: service,
@@ -34,6 +36,7 @@ func New(service Service, log *slog.Logger) *Handler {
 	}
 }
 
+// Register registers the client routes with a router.
 func (h *Handler) Register() func(r chi.Router) {
 	return func(r chi.Router) {
 		r.Post("/", h.addClient)
@@ -42,6 +45,17 @@ func (h *Handler) Register() func(r chi.Router) {
 	}
 }
 
+// addClient adds a new client.
+// @Summary Add a new client
+// @Description Add a new client to the system
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param request body models.Client true "Client information"
+// @Success 201 {object} models.Client
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /clients/ [post]
 func (h *Handler) addClient(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.client.addClient"
 
@@ -81,6 +95,18 @@ func (h *Handler) addClient(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, client)
 }
 
+// updateClient updates an existing client.
+// @Summary Update an existing client
+// @Description Update an existing client in the system
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param id path int true "Client ID"
+// @Param request body models.Client true "Updated client information"
+// @Success 200 {object} models.Client
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /clients/{id} [patch]
 func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.client.updateClient"
 
@@ -93,7 +119,7 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		log.Error("faile to extract client id from request params", sl.Error(err))
+		log.Error("failed to extract client id from request params", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, response.Err("Invalid client id"))
 		return
@@ -102,7 +128,7 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 	var clientInfo models.Client
 	err = render.Decode(r, &clientInfo)
 	if err != nil {
-		log.Error("failed extract user info from request body", sl.Error(err))
+		log.Error("failed to extract user info from request body", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, response.Err("Invalid credentials"))
 		return
@@ -123,6 +149,17 @@ func (h *Handler) updateClient(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, client)
 }
 
+// deleteClient deletes a client.
+// @Summary Delete a client
+// @Description Delete a client from the system
+// @Tags clients
+// @Accept json
+// @Produce json
+// @Param id path int true "Client ID"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /clients/{id} [delete]
 func (h *Handler) deleteClient(w http.ResponseWriter, r *http.Request) {
 	const op = "controller.client.deleteClient"
 
@@ -135,7 +172,7 @@ func (h *Handler) deleteClient(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		log.Error("faile to extract client id from request params", sl.Error(err))
+		log.Error("failed to extract client id from request params", sl.Error(err))
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, response.Err("Invalid client id"))
 		return
@@ -151,5 +188,5 @@ func (h *Handler) deleteClient(w http.ResponseWriter, r *http.Request) {
 	log.Debug("client removed successfully")
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, response.Ok("Client removed succesfully"))
+	render.JSON(w, r, response.Ok("Client removed successfully"))
 }

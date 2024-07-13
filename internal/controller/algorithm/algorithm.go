@@ -17,6 +17,8 @@ var (
 	emptyValue = 0
 )
 
+// Service defines the interface for managing algorithm statuses.
+//
 //go:generate mockgen -source=algorithm.go -destination=mock/mock.go -package=algorithm
 type Service interface {
 	UpdateStatuses(ctx context.Context, algoStatuses *models.AlgoStatuses) (*models.AlgoStatuses, error)
@@ -34,6 +36,17 @@ func New(service Service, log *slog.Logger) *Handler {
 	}
 }
 
+// Register registers the API routes
+// @Summary Update algorithm statuses
+// @Description Update the status of algorithms based on the provided data.
+// @Tags Algorithms
+// @Accept json
+// @Produce json
+// @Param body body models.AlgoStatuses true "Algorithm statuses to update"
+// @Success 200 {object} models.AlgoStatuses "Updated algorithm statuses"
+// @Failure 400 {object} response.Response "Invalid credentials or data"
+// @Failure 500 {object} response.Response "Internal error"
+// @Router /algorithm/ [patch]
 func (h *Handler) Register() func(r chi.Router) {
 	return func(r chi.Router) {
 		r.Patch("/", h.updateAlgorithmStatus)
@@ -50,6 +63,7 @@ func (h *Handler) updateAlgorithmStatus(w http.ResponseWriter, r *http.Request) 
 
 	log.Debug("updating algorithms status...")
 
+	// Decode the request body
 	var algoStatuses models.AlgoStatuses
 	err := render.Decode(r, &algoStatuses)
 	if err != nil {
@@ -59,6 +73,7 @@ func (h *Handler) updateAlgorithmStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Validate the received data
 	if algoStatuses.ClientID == emptyValue || !(algoStatuses.VWAP != nil || algoStatuses.TWAP != nil || algoStatuses.HFT != nil) {
 		log.Error("invalid data provided")
 		render.Status(r, http.StatusBadRequest)
@@ -66,6 +81,7 @@ func (h *Handler) updateAlgorithmStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Call the service to update the algorithm statuses
 	updatedStatuses, err := h.service.UpdateStatuses(r.Context(), &algoStatuses)
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
@@ -73,7 +89,7 @@ func (h *Handler) updateAlgorithmStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	log.Debug("algorithms statuses updated succesfully")
+	log.Debug("algorithms statuses updated successfully")
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, updatedStatuses)

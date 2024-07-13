@@ -1,0 +1,194 @@
+definitions:
+  models.AlgoStatuses:
+    properties:
+      client_id:
+        example: 123
+        type: integer
+      hft:
+        example: true
+        type: boolean
+      twap:
+        example: false
+        type: boolean
+      vwap:
+        example: true
+        type: boolean
+    type: object
+  models.Client:
+    properties:
+      client_name:
+        example: Client A
+        type: string
+      cpu:
+        example: 2 cores
+        type: string
+      created_at:
+        example: "2024-07-01T08:00:00Z"
+        type: string
+      id:
+        example: 1
+        type: integer
+      image:
+        example: client-image:latest
+        type: string
+      memory:
+        example: 4 GB
+        type: string
+      need_restart:
+        example: false
+        type: boolean
+      priority:
+        example: 0.75
+        type: number
+      spawned_at:
+        example: "2024-07-17T12:00:00Z"
+        type: string
+      updated_at:
+        example: "2024-07-17T14:30:00Z"
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
+  response.Response:
+    properties:
+      error:
+        description: Optional error message for error responses
+        type: string
+      message:
+        description: Optional message for successful responses
+        type: string
+      status:
+        description: Status of the response (OK or Error)
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Microservice from syncing user's algorythms in kubernates.
+  title: Algo Sync Service
+  version: "1.0"
+paths:
+  /algorithm/:
+    patch:
+      consumes:
+      - application/json
+      description: Update the status of algorithms based on the provided data.
+      parameters:
+      - description: Algorithm statuses to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AlgoStatuses'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated algorithm statuses
+          schema:
+            $ref: '#/definitions/models.AlgoStatuses'
+        "400":
+          description: Invalid credentials or data
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Update algorithm statuses
+      tags:
+      - Algorithms
+  /clients/:
+    post:
+      consumes:
+      - application/json
+      description: Add a new client to the system
+      parameters:
+      - description: Client information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.Client'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Client'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Add a new client
+      tags:
+      - clients
+  /clients/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a client from the system
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Delete a client
+      tags:
+      - clients
+    patch:
+      consumes:
+      - application/json
+      description: Update an existing client in the system
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated client information
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.Client'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Client'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Update an existing client
+      tags:
+      - clients
+swagger: "2.0"
