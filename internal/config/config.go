@@ -13,6 +13,7 @@ type Config struct {
 	Env string
 	*Storage
 	*Server
+	*Kubernates
 }
 
 type Storage struct {
@@ -27,6 +28,11 @@ type Server struct {
 	Host    string
 	Port    string
 	Timeout time.Duration
+}
+
+type Kubernates struct {
+	KubeConfig    string
+	ConteinerName string
 }
 
 func MustLoad() *Config {
@@ -53,6 +59,10 @@ func MustLoad() *Config {
 			Host:    os.Getenv("SERVER_HOST"),
 			Port:    os.Getenv("SERVER_PORT"),
 			Timeout: time.Duration(timeout),
+		},
+		&Kubernates{
+			KubeConfig:    os.Getenv("KUBECONFIG"),
+			ConteinerName: os.Getenv("CONTAINER_IMAGE"),
 		},
 	}
 }

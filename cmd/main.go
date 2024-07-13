@@ -6,17 +6,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
+	"time"
 
 	"sync-algo/internal/config"
 	algorithmController "sync-algo/internal/controller/algorithm"
 	clientController "sync-algo/internal/controller/client"
+	"sync-algo/internal/deployer"
 	"sync-algo/internal/lib/logger"
 	"sync-algo/internal/lib/logger/sl"
+	"sync-algo/internal/scheduler"
 	algorithmService "sync-algo/internal/service/algorithm"
 	clientService "sync-algo/internal/service/client"
 	"sync-algo/internal/storage/postgres"
-	"syscall"
-	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -38,7 +40,7 @@ func main() {
 	storage, err := postgres.New(cfg.Storage)
 	if err != nil {
 		log.Error("storage initial error", sl.Error(err))
-		return
+		os.Exit(1)
 	}
 
 	// Service layer
@@ -49,15 +51,16 @@ func main() {
 	clientController := clientController.New(clientService, log)
 	algorithmController := algorithmController.New(algorithmService, log)
 
-	// Deployer and Scheduler initialization
-	// deployer := NewK8sDeployer() // Assuming this function is implemented elsewhere
-	// sch := scheduler.NewScheduler(deployer, storage)
+	// Deployer initialization
+	deployer, err := deployer.New()
+	if err != nil {
+		log.Error(`failed to init 'deployer'`, sl.Error(err))
+		os.Exit(1)
+	}
 
-	// go func() {
-	// 	if err := sch.Start(ctx); err != nil {
-	// 		log.Error("scheduler error", sl.Error(err))
-	// 	}
-	// }()
+	// Scheduler initialization
+	sch := scheduler.New(log, storage)
+	go sch.Start(ctx, deployer)
 
 	// Init router
 	r := chi.NewRouter()

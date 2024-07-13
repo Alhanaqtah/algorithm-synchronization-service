@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"sync-algo/internal/config"
 	"sync-algo/internal/models"
@@ -116,9 +117,23 @@ func (s *Storage) CreateClient(ctx context.Context, clientInfo *models.Client) (
 func (s *Storage) UpdateClient(ctx context.Context, fields []string, values []interface{}) (*models.Client, error) {
 	const op = "storage.postgres.UpdateClient"
 
-	f := strings.Join(fields[:], ", ")
+	// Добавляем поле updated_at с его значением
+	fields = append(fields, "updated_at")
+	values = append(values, time.Now())
 
-	q := fmt.Sprintf("UPDATE clients SET %s WHERE id = $%d RETURNING id, name, version, image, cpu, memory, priority, need_restart, spawned_at, created_at, updated_at", f, len(values))
+	// Создаем строку для запроса с полями для обновления
+	setClauses := make([]string, len(fields))
+	for i, field := range fields {
+		setClauses[i] = fmt.Sprintf("%s = $%d", field, i+1)
+	}
+	setClause := strings.Join(setClauses, ", ")
+
+	// Получаем id клиента, который нужно обновить
+	id := values[len(values)-2]                                              // предпоследний элемент в исходном массиве
+	values[len(values)-2], values[len(values)-1] = values[len(values)-1], id // меняем местами id и время
+
+	// Формируем окончательный запрос
+	q := fmt.Sprintf("UPDATE clients SET %s WHERE id = $%d RETURNING id, name, version, image, cpu, memory, priority, need_restart, spawned_at, created_at, updated_at", setClause, len(values))
 
 	row := s.pool.QueryRow(ctx, q, values...)
 
@@ -175,9 +190,10 @@ func (s *Storage) RemoveClient(ctx context.Context, id int) error {
 func (s *Storage) UpdateStatuses(ctx context.Context, fields []string, values []interface{}) (*models.AlgoStatuses, error) {
 	const op = "storage.postgres.UpdateStatuses"
 
+	// Объединяем поля в строку
 	f := strings.Join(fields, ", ")
 
-	q := fmt.Sprintf("UPDATE algorithm_statuses SET %s WHERE id = $%d RETURNING client_id, vwap, twap, hft", f, len(values))
+	q := fmt.Sprintf("UPDATE algorithm_statuses SET %s WHERE id = $%d RETURNING client_id, vwap, twap, hft", f, len(fields)+1)
 
 	row := s.pool.QueryRow(ctx, q, values...)
 
@@ -188,6 +204,31 @@ func (s *Storage) UpdateStatuses(ctx context.Context, fields []string, values []
 	}
 
 	return &algoStatuses, nil
+}
+
+func (s *Storage) FetchCurrentStatuses(ctx context.Context) ([]models.AlgoStatuses, error) {
+	const op = "storage.postgres.FetchCurrentStatuses"
+
+	rows, err := s.pool.Query(ctx, "SELECT client_id, vwap, twap, hft FROM algorithm_statuses")
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var statuses []models.AlgoStatuses
+	for rows.Next() {
+		var status models.AlgoStatuses
+		if err := rows.Scan(&status.ClientID, &status.VWAP, &status.TWAP, &status.HFT); err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+		statuses = append(statuses, status)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return statuses, nil
 }
 
 func (s *Storage) Close() {
