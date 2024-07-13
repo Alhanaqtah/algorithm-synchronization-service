@@ -52,7 +52,7 @@ func main() {
 	algorithmController := algorithmController.New(algorithmService, log)
 
 	// Deployer initialization
-	deployer, err := deployer.New()
+	deployer, err := deployer.New(cfg.Kubernates)
 	if err != nil {
 		log.Error(`failed to init 'deployer'`, sl.Error(err))
 		os.Exit(1)
